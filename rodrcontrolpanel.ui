@@ -151,7 +151,7 @@
      </item>
     </layout>
    </widget>
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>280</x>
@@ -188,7 +188,7 @@
        <property name="frameShadow">
         <enum>QFrame::Shadow::Raised</enum>
        </property>
-       <widget class="QWidget" name="">
+       <widget class="QWidget" name="layoutWidget">
         <property name="geometry">
          <rect>
           <x>11</x>
@@ -311,13 +311,13 @@
      </item>
     </layout>
    </widget>
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>150</y>
       <width>271</width>
-      <height>371</height>
+      <height>351</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="lyError">
@@ -425,8 +425,6 @@
   <tabstop>leSendPos</tabstop>
   <tabstop>leRecPos_4</tabstop>
   <tabstop>leRecPos</tabstop>
-  <tabstop>leRecPos_2</tabstop>
-  <tabstop>leRecPos_3</tabstop>
   <tabstop>btnSendPos</tabstop>
  </tabstops>
  <resources/>
