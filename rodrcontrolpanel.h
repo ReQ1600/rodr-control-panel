@@ -18,11 +18,15 @@ public:
     ~RODRControlPanel();
 
 private slots:
+    void syncSelectedItemsFromCmdHist();
+    void syncSelectedItemsFromCmdOutHist();
+
     void on_btnConnectTCP_clicked();
 
     void on_btnConnectUDP_clicked();
 
 private:
+    bool syncingItems = false;
     Ui::RODRControlPanel *ui;
 };
 #endif // RODRCONTROLPANEL_H

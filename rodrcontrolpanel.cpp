@@ -3,6 +3,7 @@
 
 #include <QValidator>
 #include <QtConcurrent>
+#include <QScrollBar>
 
 #include "TCPClient.hpp"
 #include "UDPCommunication.hpp"
@@ -52,6 +53,32 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
 
     ui->leSendPos->setValidator(regex_validator);
+
+    //setting error text edits text color to red
+    ui->teErrorPC->setTextColor(Qt::red);
+    ui->teErrorStm->setTextColor(Qt::red);
+
+    //synchronising scroll bars of command history list widgets
+    connect(ui->lsCmdHist->verticalScrollBar(), &QScrollBar::valueChanged, ui->lsCmdOutHist->verticalScrollBar(), &QScrollBar::setValue);
+    connect(ui->lsCmdOutHist->verticalScrollBar(), &QScrollBar::valueChanged, ui->lsCmdHist->verticalScrollBar(), &QScrollBar::setValue);
+
+    ui->lsCmdHist->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui->lsCmdOutHist->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    //synchronising selected elements of command history list widgets
+    connect(ui->lsCmdHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdHist);
+    connect(ui->lsCmdOutHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdOutHist);
+
+    QStringList list;
+    for (int i = 0; i < 100; i++)
+    {
+        list.append(QString::number(i));
+    }
+
+    ui->lsCmdHist->addItems(list);
+    ui->lsCmdOutHist->addItems(list);
+
+
 }
 
 RODRControlPanel::~RODRControlPanel()
@@ -152,4 +179,23 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
     }
 }
 
+void RODRControlPanel::syncSelectedItemsFromCmdOutHist()
+{
+    if (syncingItems) return;
+    syncingItems = true;
 
+    std::cout << ui->lsCmdOutHist->currentRow();
+    ui->lsCmdHist->setCurrentRow(ui->lsCmdOutHist->currentRow());
+
+    syncingItems = false;
+}
+
+void RODRControlPanel::syncSelectedItemsFromCmdHist()
+{
+    if (syncingItems) return;
+    syncingItems = true;
+
+    ui->lsCmdOutHist->setCurrentRow(ui->lsCmdHist->currentRow());
+
+    syncingItems = false;
+}

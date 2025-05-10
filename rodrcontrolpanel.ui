@@ -333,6 +333,11 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="font">
+        <font>
+         <strikeout>false</strikeout>
+        </font>
+       </property>
        <property name="readOnly">
         <bool>true</bool>
        </property>
