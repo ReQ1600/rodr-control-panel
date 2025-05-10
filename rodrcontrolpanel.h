@@ -25,6 +25,8 @@ private slots:
 
     void on_btnConnectUDP_clicked();
 
+    void on_btnSendCmd_clicked();
+
 private:
     bool syncingItems = false;
     Ui::RODRControlPanel *ui;

@@ -19,6 +19,8 @@ namespace rodr
     namespace tcp
     {
         constexpr u_short PORT = 2000;
+        handler message_handler;
+        handler error_handler;
     }
     namespace connection
     {
@@ -48,15 +50,36 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     ui->setupUi(this);
     this->setFixedSize(geometry().width(), geometry().height());
 
+    //setting up handlers
+    rodr::tcp::message_handler = [this](const char* buff){
+        ui->leCmdOut->setText(buff);
+
+        ui->lsCmdHist->addItem(ui->leSendCmd->text());
+        ui->lsCmdOutHist->addItem(QString(buff).trimmed());
+    };
+
+    rodr::tcp::error_handler = [this](const char* buff){
+        ui->leCmdOut->setText("receive failed");
+
+        const auto cmd = ui->leSendCmd->text();
+
+        QListWidgetItem* err = new QListWidgetItem("TCP error: command \"" + cmd + "\" resulted in error \"No return value received\"");
+        err->setForeground(Qt::red);
+
+        ui->lsErrorPC->addItem(err);
+        ui->lsCmdHist->addItem(cmd);
+
+        QListWidgetItem* hist_out_msg = new QListWidgetItem(QString("Receive failed with code: %1").arg(buff));
+        hist_out_msg->setForeground(Qt::red);
+
+        ui->lsCmdOutHist->addItem(hist_out_msg);
+    };
+
     //leSendPos regex
     QRegularExpression rx("\\d{1,2}\\.\\d{0,3}");
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
 
     ui->leSendPos->setValidator(regex_validator);
-
-    //setting error text edits text color to red
-    ui->teErrorPC->setTextColor(Qt::red);
-    ui->teErrorStm->setTextColor(Qt::red);
 
     //synchronising scroll bars of command history list widgets
     connect(ui->lsCmdHist->verticalScrollBar(), &QScrollBar::valueChanged, ui->lsCmdOutHist->verticalScrollBar(), &QScrollBar::setValue);
@@ -69,6 +92,7 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     connect(ui->lsCmdHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdHist);
     connect(ui->lsCmdOutHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdOutHist);
 
+    //tmp dummmy data
     QStringList list;
     for (int i = 0; i < 100; i++)
     {
@@ -78,7 +102,9 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     ui->lsCmdHist->addItems(list);
     ui->lsCmdOutHist->addItems(list);
 
-
+    //disabling buttons that require connection
+    ui->btnSendPos->setEnabled(false);
+    ui->btnSendCmd->setEnabled(false);
 }
 
 RODRControlPanel::~RODRControlPanel()
@@ -124,6 +150,7 @@ void RODRControlPanel::on_btnConnectTCP_clicked()
             }
 
             ui->btnConnectTCP->setEnabled(true);
+            ui->btnSendCmd->setEnabled(true);
         });
     }
     else
@@ -131,6 +158,7 @@ void RODRControlPanel::on_btnConnectTCP_clicked()
         rodr::connection::tcp_client.reset();
         rodr::connection::TCP_status = rodr::connection::Status::Disconnected;
 
+        ui->btnSendCmd->setEnabled(false);
         ui->lblStatusTCP->setText("not connected");
         ui->btnConnectTCP->setText("Connect");
     }
@@ -184,7 +212,6 @@ void RODRControlPanel::syncSelectedItemsFromCmdOutHist()
     if (syncingItems) return;
     syncingItems = true;
 
-    std::cout << ui->lsCmdOutHist->currentRow();
     ui->lsCmdHist->setCurrentRow(ui->lsCmdOutHist->currentRow());
 
     syncingItems = false;
@@ -199,3 +226,32 @@ void RODRControlPanel::syncSelectedItemsFromCmdHist()
 
     syncingItems = false;
 }
+
+void RODRControlPanel::on_btnSendCmd_clicked()
+{
+    const auto& msg = ui->leSendCmd->text();
+    if (msg.length() > 0)
+    {
+        rodr::connection::tcp_client->SendMsg(msg.toUpper().toUtf8().constData());
+
+        QtConcurrent::run([this]{
+            ui->btnSendCmd->setEnabled(false);
+            ui->leSendCmd->setEnabled(false);
+
+            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::message_handler, rodr::tcp::error_handler);
+
+            ui->btnSendCmd->setEnabled(true);
+            ui->leSendCmd->setEnabled(true);
+
+            //wait for ui update and scroll to last element
+            QTimer::singleShot(0, this, [this]() {
+                ui->lsCmdHist->scrollToItem(ui->lsCmdHist->item(ui->lsCmdHist->count() - 1));
+            });
+
+        });
+
+
+    }
+
+}
+
