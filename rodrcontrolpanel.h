@@ -17,6 +17,11 @@ public:
     RODRControlPanel(QWidget *parent = nullptr);
     ~RODRControlPanel();
 
+private slots:
+    void on_btnConnectTCP_clicked();
+
+    void on_btnConnectUDP_clicked();
+
 private:
     Ui::RODRControlPanel *ui;
 };
