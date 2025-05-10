@@ -15,7 +15,6 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
 
     ui->leSendPos->setValidator(regex_validator);
-
 }
 
 RODRControlPanel::~RODRControlPanel()
