@@ -27,6 +27,8 @@ private slots:
 
     void on_btnSendCmd_clicked();
 
+    void on_btnSendPos_clicked();
+
 private:
     bool syncingItems = false;
     Ui::RODRControlPanel *ui;

@@ -19,8 +19,9 @@ namespace rodr
     namespace tcp
     {
         constexpr u_short PORT = 2000;
-        handler message_handler;
-        handler error_handler;
+        handler ReceiveMessageHandler;
+        handler ReceiveErrorHandler;
+        handler SendMessageHandler;
     }
     namespace connection
     {
@@ -51,25 +52,42 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     this->setFixedSize(geometry().width(), geometry().height());
 
     //setting up handlers
-    rodr::tcp::message_handler = [this](const char* buff){
+    rodr::tcp::ReceiveMessageHandler = [this](const char* buff){
         ui->leCmdOut->setText(buff);
 
         ui->lsCmdHist->addItem(ui->leSendCmd->text());
         ui->lsCmdOutHist->addItem(QString(buff).trimmed());
     };
 
-    rodr::tcp::error_handler = [this](const char* buff){
+    rodr::tcp::ReceiveErrorHandler = [this](const char* buff){
         ui->leCmdOut->setText("receive failed");
 
         const auto cmd = ui->leSendCmd->text();
 
-        QListWidgetItem* err = new QListWidgetItem("TCP error: command \"" + cmd + "\" resulted in error \"No return value received\"");
+        QListWidgetItem* err = new QListWidgetItem("TCP: command \"" + cmd + "\" resulted in error \"No return value received\"");
         err->setForeground(Qt::red);
 
         ui->lsErrorPC->addItem(err);
         ui->lsCmdHist->addItem(cmd);
 
         QListWidgetItem* hist_out_msg = new QListWidgetItem(QString("Receive failed with code: %1").arg(buff));
+        hist_out_msg->setForeground(Qt::red);
+
+        ui->lsCmdOutHist->addItem(hist_out_msg);
+    };
+
+    rodr::tcp::SendMessageHandler = [this](const char* buff){
+        ui->leCmdOut->setText("send failed");
+
+        const auto cmd = ui->leSendCmd->text();
+
+        QListWidgetItem* err = new QListWidgetItem("TCP: command \"" + cmd + "\" resulted in error \"Socket error, can't send data\"");
+        err->setForeground(Qt::red);
+
+        ui->lsErrorPC->addItem(err);
+        ui->lsCmdHist->addItem(cmd);
+
+        QListWidgetItem* hist_out_msg = new QListWidgetItem(QString("Send failed with error code: %1").arg(buff));
         hist_out_msg->setForeground(Qt::red);
 
         ui->lsCmdOutHist->addItem(hist_out_msg);
@@ -91,16 +109,6 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     //synchronising selected elements of command history list widgets
     connect(ui->lsCmdHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdHist);
     connect(ui->lsCmdOutHist, &QListWidget::itemSelectionChanged, this, &RODRControlPanel::syncSelectedItemsFromCmdOutHist);
-
-    //tmp dummmy data
-    QStringList list;
-    for (int i = 0; i < 100; i++)
-    {
-        list.append(QString::number(i));
-    }
-
-    ui->lsCmdHist->addItems(list);
-    ui->lsCmdOutHist->addItems(list);
 
     //disabling buttons that require connection
     ui->btnSendPos->setEnabled(false);
@@ -151,6 +159,7 @@ void RODRControlPanel::on_btnConnectTCP_clicked()
 
             ui->btnConnectTCP->setEnabled(true);
             ui->btnSendCmd->setEnabled(true);
+            ui->btnSendPos->setEnabled(true);
         });
     }
     else
@@ -159,6 +168,8 @@ void RODRControlPanel::on_btnConnectTCP_clicked()
         rodr::connection::TCP_status = rodr::connection::Status::Disconnected;
 
         ui->btnSendCmd->setEnabled(false);
+        ui->btnSendPos->setEnabled(false);
+
         ui->lblStatusTCP->setText("not connected");
         ui->btnConnectTCP->setText("Connect");
     }
@@ -232,13 +243,13 @@ void RODRControlPanel::on_btnSendCmd_clicked()
     const auto& msg = ui->leSendCmd->text();
     if (msg.length() > 0)
     {
-        rodr::connection::tcp_client->SendMsg(msg.toUpper().toUtf8().constData());
+        rodr::connection::tcp_client->SendMsg(msg.toUpper().toUtf8().constData(), rodr::tcp::SendMessageHandler);
+
+        ui->btnSendCmd->setEnabled(false);
+        ui->leSendCmd->setEnabled(false);
 
         QtConcurrent::run([this]{
-            ui->btnSendCmd->setEnabled(false);
-            ui->leSendCmd->setEnabled(false);
-
-            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::message_handler, rodr::tcp::error_handler);
+            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::ReceiveMessageHandler, rodr::tcp::ReceiveErrorHandler);
 
             ui->btnSendCmd->setEnabled(true);
             ui->leSendCmd->setEnabled(true);
@@ -246,12 +257,32 @@ void RODRControlPanel::on_btnSendCmd_clicked()
             //wait for ui update and scroll to last element
             QTimer::singleShot(0, this, [this]() {
                 ui->lsCmdHist->scrollToItem(ui->lsCmdHist->item(ui->lsCmdHist->count() - 1));
+                ui->lsErrorPC->scrollToItem(ui->lsErrorPC->item(ui->lsErrorPC->count() - 1));
+                ui->lsErrorStm->scrollToItem(ui->lsErrorStm->item(ui->lsErrorStm->count() - 1));
             });
 
         });
-
-
     }
+}
 
+void RODRControlPanel::on_btnSendPos_clicked()
+{
+    const auto& pos = ui->leSendPos->text();
+    if (pos.length() > 0)
+    {
+        ui->btnSendPos->setEnabled(false);
+        ui->leSendPos->setEnabled(false);
+
+        auto msg = QString("SETPOS:%1").arg(pos).toUtf8().constData();
+        rodr::connection::tcp_client->SendMsg(msg, rodr::tcp::SendMessageHandler);
+
+        QtConcurrent::run([this]{
+            //should return position it received
+            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::ReceiveMessageHandler, rodr::tcp::ReceiveErrorHandler);
+
+            ui->btnSendPos->setEnabled(true);
+            ui->leSendPos->setEnabled(true);
+        });
+    }
 }
 
