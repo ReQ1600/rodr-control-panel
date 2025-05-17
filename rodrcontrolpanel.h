@@ -10,6 +10,45 @@
 #include "TCPClient.hpp"
 #include "UDPCommunication.hpp"
 
+namespace rodr
+{
+    namespace udp
+    {
+        constexpr u_short REMOTE_PORT = 4000;
+        constexpr u_short LOCAL_PORT = 2000;
+    }
+
+    namespace tcp
+    {
+        constexpr u_short PORT = 2000;
+        handler CmdReceiveMessageHandler;
+        handler PosReceiveMessageHandler;
+
+        handler CmdReceiveErrorHandler;
+        handler PosReceiveErrorHandler;
+
+        handler SendMessageHandler;
+        handler SendPosHandler;
+    }
+    namespace connection
+    {
+        constexpr const char* REMOTE_IP = "192.168.113.5";
+        constexpr const char* SOURCE_IP = "192.168.113.4";
+
+        enum class Status
+        {
+            Disconnected = 0,
+            Connected
+        };
+
+        std::unique_ptr<rodr::udp::UDP> feedback_connection;
+        std::unique_ptr<rodr::tcp::TCPClient> tcp_client;
+
+        static Status UDP_status = Status::Disconnected;
+        static Status TCP_status = Status::Disconnected;
+    }
+}
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class RODRControlPanel;
