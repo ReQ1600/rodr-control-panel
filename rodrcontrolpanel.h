@@ -3,6 +3,13 @@
 
 #include <QMainWindow>
 
+#include <QValidator>
+#include <QtConcurrent>
+#include <QScrollBar>
+
+#include "TCPClient.hpp"
+#include "UDPCommunication.hpp"
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class RODRControlPanel;
@@ -16,6 +23,9 @@ class RODRControlPanel : public QMainWindow
 public:
     RODRControlPanel(QWidget *parent = nullptr);
     ~RODRControlPanel();
+
+    void addPCErr(const char* src, const QString& cmd, rodr::ERROR_TYPE type);
+    void addSTMErr(const char* src, const QString& cmd, rodr::ERROR_TYPE type);
 
 private slots:
     void syncSelectedItemsFromCmdHist();
@@ -35,5 +45,6 @@ private:
 
 signals:
     void enablePosWidgets();
+    void scrollListEditsToLastItem();
 };
 #endif // RODRCONTROLPANEL_H
