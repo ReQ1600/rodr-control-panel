@@ -1,6 +1,55 @@
 #include "rodrcontrolpanel.h"
 #include "./ui_rodrcontrolpanel.h"
 
+namespace rodr
+{
+    namespace udp
+    {
+        constexpr u_short REMOTE_PORT = 4000;
+        constexpr u_short LOCAL_PORT = 2000;
+    }
+
+    namespace tcp
+    {
+        constexpr u_short PORT = 2000;
+        handler CmdReceiveMessageHandler;
+        handler PosReceiveMessageHandler;
+
+        handler CmdReceiveErrorHandler;
+        handler PosReceiveErrorHandler;
+
+        handler SendMessageHandler;
+        handler SendPosHandler;
+    }
+    namespace connection
+    {
+        constexpr const char* REMOTE_IP = "192.168.113.5";
+        constexpr const char* SOURCE_IP = "192.168.113.4";
+
+        enum class Status
+        {
+            Disconnected = 0,
+            Connected
+        };
+
+        std::unique_ptr<rodr::udp::UDP> feedback_connection;
+        std::unique_ptr<rodr::tcp::TCPClient> tcp_client;
+
+        static inline std::atomic<Status> UDP_status = Status::Disconnected;
+        static inline std::atomic<Status> TCP_status = Status::Disconnected;
+    }
+}
+
+void rodr::udp::UDPFeedBackWorker::run()
+{
+    if (connection_)
+    {
+        while (rodr::connection::UDP_status == rodr::connection::Status::Connected)
+        {
+            connection_->ReceiveAndHandle(handler_);
+        }
+    }
+}
 
 RODRControlPanel::RODRControlPanel(QWidget *parent)
     : QMainWindow(parent)
@@ -8,6 +57,10 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
 {
     ui->setupUi(this);
     this->setFixedSize(geometry().width(), geometry().height());
+
+    //setting up feedback thread
+    FeedBackThread = std::make_unique<QThread>();
+
 
     //setting up handlers
     rodr::tcp::CmdReceiveMessageHandler = [this](const char* buff){
@@ -137,7 +190,7 @@ void RODRControlPanel::on_btnConnectTCP_clicked()
 {
     rodr::connection::tcp_client.reset();
 
-    if (!(bool)rodr::connection::TCP_status)
+    if (rodr::connection::TCP_status == rodr::connection::Status::Disconnected)
     {
         ui->lblStatusTCP->setText("connecting...");
         ui->btnConnectTCP->setEnabled(false);
@@ -200,7 +253,7 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
 {
     rodr::connection::feedback_connection.reset();
 
-    if (!(bool)rodr::connection::UDP_status)
+    if (rodr::connection::UDP_status == rodr::connection::Status::Disconnected)
     {
         ui->lblStatusUDP->setText("connecting...");
         ui->btnConnectUDP->setEnabled(false);
@@ -228,6 +281,8 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
             ui->lblStatusUDP->setText("connected");
             ui->btnConnectUDP->setText("Disconnect");
             ui->btnConnectUDP->setEnabled(true);
+
+
         });
     }
     else

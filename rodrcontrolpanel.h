@@ -7,6 +7,8 @@
 #include <QtConcurrent>
 #include <QScrollBar>
 
+#include <atomic>
+
 #include "TCPClient.hpp"
 #include "UDPCommunication.hpp"
 
@@ -14,38 +16,22 @@ namespace rodr
 {
     namespace udp
     {
-        constexpr u_short REMOTE_PORT = 4000;
-        constexpr u_short LOCAL_PORT = 2000;
-    }
-
-    namespace tcp
-    {
-        constexpr u_short PORT = 2000;
-        handler CmdReceiveMessageHandler;
-        handler PosReceiveMessageHandler;
-
-        handler CmdReceiveErrorHandler;
-        handler PosReceiveErrorHandler;
-
-        handler SendMessageHandler;
-        handler SendPosHandler;
-    }
-    namespace connection
-    {
-        constexpr const char* REMOTE_IP = "192.168.113.5";
-        constexpr const char* SOURCE_IP = "192.168.113.4";
-
-        enum class Status
+        //A wrapper class for handling UDPCommunication feedback
+        class UDPFeedBackWorker : public QObject
         {
-            Disconnected = 0,
-            Connected
+            Q_OBJECT
+
+        public:
+            UDPFeedBackWorker(std::shared_ptr<rodr::udp::UDP> conn, rodr::handler handler) : connection_(std::move(conn)), handler_(handler) {};
+
+        public slots:
+            void run();
+
+        private:
+            std::shared_ptr<rodr::udp::UDP> connection_;
+            rodr::handler handler_;
         };
 
-        std::unique_ptr<rodr::udp::UDP> feedback_connection;
-        std::unique_ptr<rodr::tcp::TCPClient> tcp_client;
-
-        static Status UDP_status = Status::Disconnected;
-        static Status TCP_status = Status::Disconnected;
     }
 }
 
@@ -80,6 +66,9 @@ private slots:
 
 private:
     bool syncingItems = false;
+
+    std::unique_ptr<QThread> FeedBackThread = nullptr;
+
     Ui::RODRControlPanel *ui;
 
 signals:
