@@ -19,9 +19,14 @@ namespace rodr
     namespace tcp
     {
         constexpr u_short PORT = 2000;
-        handler ReceiveMessageHandler;
-        handler ReceiveErrorHandler;
+        handler CmdReceiveMessageHandler;
+        handler PosReceiveMessageHandler;
+
+        handler CmdReceiveErrorHandler;
+        handler PosReceiveErrorHandler;
+
         handler SendMessageHandler;
+        handler SendPosHandler;
     }
     namespace connection
     {
@@ -52,14 +57,14 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     this->setFixedSize(geometry().width(), geometry().height());
 
     //setting up handlers
-    rodr::tcp::ReceiveMessageHandler = [this](const char* buff){
+    rodr::tcp::CmdReceiveMessageHandler = [this](const char* buff){
         ui->leCmdOut->setText(buff);
 
         ui->lsCmdHist->addItem(ui->leSendCmd->text());
         ui->lsCmdOutHist->addItem(QString(buff).trimmed());
     };
 
-    rodr::tcp::ReceiveErrorHandler = [this](const char* buff){
+    rodr::tcp::CmdReceiveErrorHandler = [this](const char* buff){
         ui->leCmdOut->setText("receive failed");
 
         const auto cmd = ui->leSendCmd->text();
@@ -93,6 +98,21 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         ui->lsCmdOutHist->addItem(hist_out_msg);
     };
 
+    rodr::tcp::SendPosHandler = [this](const char* buff){
+        ui->leCmdOut->setText("send failed");
+
+        const auto cmd = ui->leSendPos->text();
+
+        QListWidgetItem* err = new QListWidgetItem("TCP: command \"" + cmd + "\" resulted in error \"Socket error, can't send data\"");
+        err->setForeground(Qt::red);
+
+        ui->lsErrorPC->addItem(err);
+    };
+
+    //TODO: implement Posreceivemessage and
+    rodr::tcp::PosReceiveMessageHandler = [this](const char* buff) {return;};
+    rodr::tcp::PosReceiveErrorHandler = [this](const char* buff) {return;};
+
     //leSendPos regex
     QRegularExpression rx("\\d{1,2}\\.\\d{0,3}");
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
@@ -113,6 +133,14 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     //disabling buttons that require connection
     ui->btnSendPos->setEnabled(false);
     ui->btnSendCmd->setEnabled(false);
+
+    //connecting signals
+    connect(this, &RODRControlPanel::enablePosWidgets, this, [this](){
+        ui->btnSendPos->setEnabled(true);
+        ui->leSendPos->setEnabled(true);
+    });
+
+    //TODO: connect rest of enabling widget signals.
 }
 
 RODRControlPanel::~RODRControlPanel()
@@ -249,7 +277,7 @@ void RODRControlPanel::on_btnSendCmd_clicked()
         ui->leSendCmd->setEnabled(false);
 
         QtConcurrent::run([this]{
-            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::ReceiveMessageHandler, rodr::tcp::ReceiveErrorHandler);
+            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::CmdReceiveMessageHandler, rodr::tcp::CmdReceiveErrorHandler);
 
             ui->btnSendCmd->setEnabled(true);
             ui->leSendCmd->setEnabled(true);
@@ -274,14 +302,14 @@ void RODRControlPanel::on_btnSendPos_clicked()
         ui->leSendPos->setEnabled(false);
 
         auto msg = QString("SETPOS:%1").arg(pos).toUtf8().constData();
-        rodr::connection::tcp_client->SendMsg(msg, rodr::tcp::SendMessageHandler);
+        rodr::connection::tcp_client->SendMsg(msg, rodr::tcp::SendPosHandler);
 
         QtConcurrent::run([this]{
             //should return position it received
-            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::ReceiveMessageHandler, rodr::tcp::ReceiveErrorHandler);
+            rodr::connection::tcp_client->ReceiveAndHandle(rodr::tcp::PosReceiveMessageHandler, rodr::tcp::PosReceiveErrorHandler);
 
-            ui->btnSendPos->setEnabled(true);
-            ui->leSendPos->setEnabled(true);
+            //enabling button and line edit
+            emit enablePosWidgets();
         });
     }
 }

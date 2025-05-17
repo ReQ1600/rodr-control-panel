@@ -32,5 +32,8 @@ private slots:
 private:
     bool syncingItems = false;
     Ui::RODRControlPanel *ui;
+
+signals:
+    void enablePosWidgets();
 };
 #endif // RODRCONTROLPANEL_H
