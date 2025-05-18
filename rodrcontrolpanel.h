@@ -27,6 +27,9 @@ namespace rodr
         public slots:
             void run();
 
+        signals:
+            void finished();
+
         private:
             std::shared_ptr<rodr::udp::UDP> connection_;
             rodr::handler handler_;
@@ -67,7 +70,8 @@ private slots:
 private:
     bool syncingItems = false;
 
-    std::unique_ptr<QThread> FeedBackThread = nullptr;
+    std::unique_ptr<QThread> feedback_thread_ = nullptr;
+    std::unique_ptr<rodr::udp::UDPFeedBackWorker> feedback_worker_ = nullptr;
 
     Ui::RODRControlPanel *ui;
 

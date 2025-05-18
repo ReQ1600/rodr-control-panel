@@ -7,6 +7,8 @@ namespace rodr
     {
         constexpr u_short REMOTE_PORT = 4000;
         constexpr u_short LOCAL_PORT = 2000;
+
+        handler FeedbackHandler;
     }
 
     namespace tcp
@@ -32,7 +34,7 @@ namespace rodr
             Connected
         };
 
-        std::unique_ptr<rodr::udp::UDP> feedback_connection;
+        std::shared_ptr<rodr::udp::UDP> feedback_connection;
         std::unique_ptr<rodr::tcp::TCPClient> tcp_client;
 
         static inline std::atomic<Status> UDP_status = Status::Disconnected;
@@ -48,6 +50,7 @@ void rodr::udp::UDPFeedBackWorker::run()
         {
             connection_->ReceiveAndHandle(handler_);
         }
+        emit finished();
     }
 }
 
@@ -58,11 +61,7 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     ui->setupUi(this);
     this->setFixedSize(geometry().width(), geometry().height());
 
-    //setting up feedback thread
-    FeedBackThread = std::make_unique<QThread>();
-
-
-    //setting up handlers
+    //setting up TCP handlers
     rodr::tcp::CmdReceiveMessageHandler = [this](const char* buff){
         ui->leCmdOut->setText(buff);
 
@@ -106,7 +105,6 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         addPCErr(rodr::err_src::TCP, cmd, rodr::ERROR_TYPE::SendPos);
     };
 
-
     rodr::tcp::PosReceiveMessageHandler = [this](const char* buff) {
         //receive should return posOK
         if (strcmp("posOK", buff) != 0)
@@ -116,6 +114,12 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     rodr::tcp::PosReceiveErrorHandler = [this](const char* buff) {
         using namespace Qt::StringLiterals;
         addPCErr(rodr::err_src::TCP, "recvPos "_L1 % buff, rodr::ERROR_TYPE::Receive);
+    };
+
+    ////setting up UDP handlers
+    rodr::udp::FeedbackHandler = [this](const char* buff)
+    {
+        return;
     };
 
     //leSendPos regex
@@ -264,7 +268,7 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
         QtConcurrent::run([this](){
             try
             {
-                rodr::connection::feedback_connection = std::make_unique<rodr::udp::UDP>(rodr::connection::SOURCE_IP, rodr::connection::REMOTE_IP,
+                rodr::connection::feedback_connection = std::make_shared<rodr::udp::UDP>(rodr::connection::SOURCE_IP, rodr::connection::REMOTE_IP,
                                                                                          rodr::udp::LOCAL_PORT, rodr::udp::REMOTE_PORT);
             } catch (std::exception)
             {
@@ -278,17 +282,34 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
             }
 
             rodr::connection::UDP_status = rodr::connection::Status::Connected;
+
+            feedback_thread_ = std::make_unique<QThread>();
+
+            feedback_worker_ = std::make_unique<rodr::udp::UDPFeedBackWorker>(rodr::connection::feedback_connection, rodr::udp::FeedbackHandler);
+            feedback_worker_->moveToThread(feedback_thread_.get());
+
+            //connecting all of the feedback stuff
+            connect(feedback_thread_.get(), &QThread::started, feedback_worker_.get(), &rodr::udp::UDPFeedBackWorker::run);
+            connect(feedback_worker_.get(), &rodr::udp::UDPFeedBackWorker::finished, feedback_worker_.get(), &QObject::deleteLater);
+            connect(feedback_worker_.get(), &rodr::udp::UDPFeedBackWorker::finished, feedback_thread_.get(), &QThread::quit);
+            connect(feedback_thread_.get(), &QThread::finished, feedback_thread_.get(), &QObject::deleteLater);
+
             ui->lblStatusUDP->setText("connected");
             ui->btnConnectUDP->setText("Disconnect");
             ui->btnConnectUDP->setEnabled(true);
 
-
+            feedback_thread_->start();
         });
     }
     else
     {
-        rodr::connection::feedback_connection.reset();
         rodr::connection::UDP_status = rodr::connection::Status::Disconnected;
+
+        //should have been deleted after thread finished so only released here
+        feedback_worker_.release();
+        feedback_thread_.release();
+
+        rodr::connection::feedback_connection.reset();
 
         ui->lblStatusUDP->setText("not connected");
         ui->btnConnectUDP->setText("Connect");
