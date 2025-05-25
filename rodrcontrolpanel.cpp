@@ -465,3 +465,23 @@ void RODRControlPanel::on_btnRecStart_clicked()
     }
 }
 
+
+void RODRControlPanel::on_btnFeedTags_clicked()
+{
+    const auto& tags = ui->leFeedTags->text().toLocal8Bit();
+
+    //resetting the table (showing all columns)
+    for (int i = 0; i < ui->twFeedback->columnCount(); ++i)
+        ui->twFeedback->showColumn(i);
+
+    //if no tags provided show all
+    if (tags.length() == 0) return;
+
+    for (int i = 0; i < rodr::COLUMN_TAGS_MAP_SIZE; ++i)
+    {
+        //hiding column if its tag was not found
+        if(!strstr(tags,rodr::ColumnTagsMap[i]))
+            ui->twFeedback->hideColumn(i);
+    }
+}
+

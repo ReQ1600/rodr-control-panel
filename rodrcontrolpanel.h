@@ -71,6 +71,8 @@ private slots:
 
     void on_btnRecStart_clicked();
 
+    void on_btnFeedTags_clicked();
+
 private:
     bool syncing_items_ = false;
     bool record_ = false;
