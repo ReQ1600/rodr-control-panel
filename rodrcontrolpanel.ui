@@ -121,7 +121,7 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_4">
        <item>
-        <widget class="QCheckBox" name="fbFeedDisp">
+        <widget class="QCheckBox" name="cbFeedDisp">
          <property name="cursor">
           <cursorShape>PointingHandCursor</cursorShape>
          </property>
@@ -178,7 +178,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QTableWidget" name="tableWidget"/>
+      <widget class="QTableWidget" name="twFeedback"/>
      </item>
     </layout>
    </widget>

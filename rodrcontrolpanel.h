@@ -68,10 +68,12 @@ private slots:
     void on_btnSendPos_clicked();
 
 private:
-    bool syncingItems = false;
+    bool syncing_items_ = false;
+    bool record_ = false;
 
     std::unique_ptr<QThread> feedback_thread_ = nullptr;
     std::unique_ptr<rodr::udp::UDPFeedBackWorker> feedback_worker_ = nullptr;
+
 
     Ui::RODRControlPanel *ui;
 

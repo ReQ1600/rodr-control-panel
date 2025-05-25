@@ -1,13 +1,17 @@
 #include "rodrcontrolpanel.h"
 #include "./ui_rodrcontrolpanel.h"
 
+#include <chrono>
+#include <thread>
+
 namespace rodr
 {
     namespace udp
     {
-        constexpr u_short REMOTE_PORT = 4000;
-        constexpr u_short LOCAL_PORT = 2000;
+        constexpr u_short REMOTE_PORT = 1000;
+        constexpr u_short LOCAL_PORT = 5000;
 
+        //set up in RODRControlPanel constructor
         handler FeedbackHandler;
     }
 
@@ -48,7 +52,8 @@ void rodr::udp::UDPFeedBackWorker::run()
     {
         while (rodr::connection::UDP_status == rodr::connection::Status::Connected)
         {
-            connection_->ReceiveAndHandle(handler_);
+            using namespace std::chrono_literals;
+            connection_->ReceiveAndHandle(handler_, [](const char* buff){std::this_thread::sleep_for(500ms);/*timeout so it wont spam err msgs*/});
         }
         emit finished();
     }
@@ -107,8 +112,11 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
 
     rodr::tcp::PosReceiveMessageHandler = [this](const char* buff) {
         //receive should return posOK
-        if (strcmp("posOK", buff) != 0)
-            addPCErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::AcceptPos);
+        if (strcmp("posERR", buff) == 0)
+            addSTMErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::StmAcceptPos);
+        else
+            //in case some gibberish is returned
+            addPCErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::BadReturnVal);
     };
 
     rodr::tcp::PosReceiveErrorHandler = [this](const char* buff) {
@@ -116,10 +124,34 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         addPCErr(rodr::err_src::TCP, "recvPos "_L1 % buff, rodr::ERROR_TYPE::Receive);
     };
 
-    ////setting up UDP handlers
+    ////setting up UDP feedback handler TODO: add if startRecording
     rodr::udp::FeedbackHandler = [this](const char* buff)
     {
-        return;
+        std::cout << buff << std::endl;
+
+        auto& fbTable = ui->twFeedback;
+        const int row = fbTable->rowCount();
+        fbTable->insertRow(row);
+
+        int time, humidity;
+        float position;
+        bool displayFb = ui->cbFeedDisp->isChecked();
+
+        //data received on udp should be in format: time;position;humidity;
+        if (displayFb || record_)
+            sscanf(buff, "%d;%f;%d;",&time, &position, &humidity);
+
+        if (record_)
+        {
+            //TODO: implement saving to file and filtering of this shit
+        }
+
+        if (displayFb)
+        {
+            fbTable->setItem(row, 0, new QTableWidgetItem(QString::number(time)));
+            fbTable->setItem(row, 1, new QTableWidgetItem(QString::number(position)));
+            fbTable->setItem(row, 2, new QTableWidgetItem(QString::number(humidity)));
+        }
     };
 
     //leSendPos regex
@@ -127,6 +159,9 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
 
     ui->leSendPos->setValidator(regex_validator);
+
+    //setting up num of columns for twFeedback
+    ui->twFeedback->setColumnCount(3);//TODO: change to proper num
 
     //synchronising scroll bars of command history list widgets
     connect(ui->lsCmdHist->verticalScrollBar(), &QScrollBar::valueChanged, ui->lsCmdOutHist->verticalScrollBar(), &QScrollBar::setValue);
@@ -318,22 +353,22 @@ void RODRControlPanel::on_btnConnectUDP_clicked()
 
 void RODRControlPanel::syncSelectedItemsFromCmdOutHist()
 {
-    if (syncingItems) return;
-    syncingItems = true;
+    if (syncing_items_) return;
+    syncing_items_ = true;
 
     ui->lsCmdHist->setCurrentRow(ui->lsCmdOutHist->currentRow());
 
-    syncingItems = false;
+    syncing_items_ = false;
 }
 
 void RODRControlPanel::syncSelectedItemsFromCmdHist()
 {
-    if (syncingItems) return;
-    syncingItems = true;
+    if (syncing_items_) return;
+    syncing_items_ = true;
 
     ui->lsCmdOutHist->setCurrentRow(ui->lsCmdHist->currentRow());
 
-    syncingItems = false;
+    syncing_items_ = false;
 }
 
 void RODRControlPanel::on_btnSendCmd_clicked()
