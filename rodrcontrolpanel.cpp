@@ -111,7 +111,10 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     };
 
     rodr::tcp::PosReceiveMessageHandler = [this](const char* buff) {
+
         //receive should return posOK
+        if (strcmp("posOK", buff) == 0) return;
+
         if (strcmp("posERR", buff) == 0)
             addSTMErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::StmAcceptPos);
         else
@@ -151,6 +154,7 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
             fbTable->setItem(row, 0, new QTableWidgetItem(QString::number(time)));
             fbTable->setItem(row, 1, new QTableWidgetItem(QString::number(position)));
             fbTable->setItem(row, 2, new QTableWidgetItem(QString::number(humidity)));
+            fbTable->scrollToBottom();
         }
     };
 
@@ -185,9 +189,9 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     });
 
     connect(this, &RODRControlPanel::scrollListEditsToLastItem, this, [this](){
-        ui->lsCmdHist->scrollToItem(ui->lsCmdHist->item(ui->lsCmdHist->count() - 1));
-        ui->lsErrorPC->scrollToItem(ui->lsErrorPC->item(ui->lsErrorPC->count() - 1));
-        ui->lsErrorStm->scrollToItem(ui->lsErrorStm->item(ui->lsErrorStm->count() - 1));
+        ui->lsCmdOutHist->scrollToBottom();
+        ui->lsErrorPC->scrollToBottom();
+        ui->lsErrorStm->scrollToBottom();
     });
 
     //TODO: connect the rest of enabling widget signals.
