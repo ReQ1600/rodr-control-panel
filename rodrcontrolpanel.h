@@ -8,6 +8,8 @@
 #include <QScrollBar>
 
 #include <atomic>
+#include <fstream>
+#include <iostream>
 
 #include "TCPClient.hpp"
 #include "UDPCommunication.hpp"
@@ -67,9 +69,13 @@ private slots:
 
     void on_btnSendPos_clicked();
 
+    void on_btnRecStart_clicked();
+
 private:
     bool syncing_items_ = false;
     bool record_ = false;
+
+    std::ofstream recording_file_;
 
     std::unique_ptr<QThread> feedback_thread_ = nullptr;
     std::unique_ptr<rodr::udp::UDPFeedBackWorker> feedback_worker_ = nullptr;

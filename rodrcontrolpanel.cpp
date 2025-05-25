@@ -416,3 +416,32 @@ void RODRControlPanel::on_btnSendPos_clicked()
         emit enablePosWidgets();
     }
 }
+
+void RODRControlPanel::on_btnRecStart_clicked()
+{
+    const auto& file_path = ui->leRecFilePath->text();
+
+    //if file path not provided
+    if (file_path.length() == 0) return;
+
+    record_ = !record_;
+
+    if (record_)
+    {
+        ui->btnRecStart->setText("Stop Recording");
+
+        recording_file_.open(file_path.toLocal8Bit());
+        if(!recording_file_.is_open())
+        {
+            addPCErr(rodr::err_src::RECORDING, "file.open", rodr::ERROR_TYPE::OpenFile);
+            record_ = false;
+            ui->btnRecStart->setText("Start Recording");
+        }
+    }
+    else
+    {
+        ui->btnRecStart->setText("Start Recording");
+        recording_file_.close();
+    }
+}
+
