@@ -9,7 +9,7 @@
 
 #include <atomic>
 #include <fstream>
-#include <iostream>
+#include <string.h>>
 
 #include "TCPClient.hpp"
 #include "UDPCommunication.hpp"

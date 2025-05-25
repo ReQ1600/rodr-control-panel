@@ -127,26 +127,45 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         addPCErr(rodr::err_src::TCP, "recvPos "_L1 % buff, rodr::ERROR_TYPE::Receive);
     };
 
-    ////setting up UDP feedback handler TODO: add if startRecording
+    ////setting up UDP feedback handler TODO: filtering and implmenting all other tags and stuff
     rodr::udp::FeedbackHandler = [this](const char* buff)
     {
         std::cout << buff << std::endl;
 
         auto& fbTable = ui->twFeedback;
-        const int row = fbTable->rowCount();
+        const int& row = fbTable->rowCount();
         fbTable->insertRow(row);
 
         int time, humidity;
         float position;
         bool displayFb = ui->cbFeedDisp->isChecked();
 
-        //data received on udp should be in format: time;position;humidity;
+        //data received on udp should be in format: time;position;humidity;...
         if (displayFb || record_)
             sscanf(buff, "%d;%f;%d;",&time, &position, &humidity);
 
         if (record_)
         {
-            //TODO: implement saving to file and filtering of this shit
+            //should be open, checking just to be sure
+            if (recording_file_.is_open())
+            {
+                //TODO: finish filtering
+                //tags should be in format  time;pos;hum;...
+                const auto& tags = ui->leRecTags->text().toLocal8Bit();
+
+                //if no tags are provided record all
+                if(tags.length() == 0)
+                    recording_file_ << time << ';' << position << ';' << humidity << ';' << std::endl;
+                else
+                {
+                    //i dont like this but have no idea how to do it better
+                    if (strstr(tags,"time")) recording_file_ << time << ';';
+                    if (strstr(tags,"pos")) recording_file_ << time << ';';
+                    if (strstr(tags,"hum")) recording_file_ << time << ';';
+
+                    recording_file_ << std::endl;
+                }
+            }
         }
 
         if (displayFb)
@@ -199,6 +218,7 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
 
 RODRControlPanel::~RODRControlPanel()
 {
+    if (recording_file_.is_open()) recording_file_.close();
     delete ui;
 }
 
