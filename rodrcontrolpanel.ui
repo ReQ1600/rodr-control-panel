@@ -527,7 +527,7 @@
       </widget>
      </item>
      <item row="2" column="0">
-      <widget class="QLineEdit" name="leRecPos_4">
+      <widget class="QLineEdit" name="leStatus">
        <property name="inputMask">
         <string comment="00.000"/>
        </property>
@@ -561,7 +561,7 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>Raw Data</string>
+        <string>Status</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -588,7 +588,7 @@
  </widget>
  <tabstops>
   <tabstop>leSendPos</tabstop>
-  <tabstop>leRecPos_4</tabstop>
+  <tabstop>leStatus</tabstop>
   <tabstop>leRecPos</tabstop>
   <tabstop>btnSendPos</tabstop>
  </tabstops>

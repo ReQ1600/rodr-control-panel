@@ -113,21 +113,28 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     rodr::tcp::PosReceiveMessageHandler = [this](const char* buff) {
 
         //receive should return posOK
-        if (strcmp("posOK", buff) == 0) return;
+        if (strcmp("SETPOS_OK", buff) == 0) return;
 
-        if (strcmp("posERR", buff) == 0)
+        if (strcmp("SETPOS_ERR", buff) == 0)
+        {
             addSTMErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::StmAcceptPos);
+            ui->leStatus->setText("OK");
+        }
         else
+        {
             //in case some gibberish is returned
             addPCErr(rodr::err_src::TCP, "recvPos", rodr::ERROR_TYPE::BadReturnVal);
+            ui->leStatus->setText("ERROR");
+        }
     };
 
     rodr::tcp::PosReceiveErrorHandler = [this](const char* buff) {
         using namespace Qt::StringLiterals;
         addPCErr(rodr::err_src::TCP, "recvPos "_L1 % buff, rodr::ERROR_TYPE::Receive);
+        ui->leStatus->setText("ERROR");
     };
 
-    ////setting up UDP feedback handler TODO: filtering and implmenting all other tags and stuff
+    ////setting up UDP feedback handler
     rodr::udp::FeedbackHandler = [this](const char* buff)
     {
         std::cout << buff << std::endl;
@@ -141,15 +148,15 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         bool displayFb = ui->cbFeedDisp->isChecked();
 
         //data received on udp should be in format: time;position;humidity;...
-        if (displayFb || record_)
-            sscanf(buff, "%d;%f;%d;",&time, &position, &humidity);
+
+        sscanf(buff, "%d;%f;%d;",&time, &position, &humidity);
+        ui->leRecPos->setText(QString::number(position));
 
         if (record_)
         {
             //should be open, checking just to be sure
             if (recording_file_.is_open())
             {
-                //TODO: finish filtering
                 //tags should be in format  time;pos;hum;...
                 const auto& tags = ui->leRecTags->text().toLocal8Bit();
 
@@ -178,13 +185,13 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
     };
 
     //leSendPos regex
-    QRegularExpression rx("\\d{1,2}\\.\\d{0,3}");
+    QRegularExpression rx("\\d{4}");
     QRegularExpressionValidator *regex_validator = new QRegularExpressionValidator(rx, this);
 
     ui->leSendPos->setValidator(regex_validator);
 
     //setting up num of columns for twFeedback
-    ui->twFeedback->setColumnCount(3);//TODO: change to proper num
+    ui->twFeedback->setColumnCount(3);
 
     //synchronising scroll bars of command history list widgets
     connect(ui->lsCmdHist->verticalScrollBar(), &QScrollBar::valueChanged, ui->lsCmdOutHist->verticalScrollBar(), &QScrollBar::setValue);
@@ -212,8 +219,6 @@ RODRControlPanel::RODRControlPanel(QWidget *parent)
         ui->lsErrorPC->scrollToBottom();
         ui->lsErrorStm->scrollToBottom();
     });
-
-    //TODO: connect the rest of enabling widget signals.
 }
 
 RODRControlPanel::~RODRControlPanel()
